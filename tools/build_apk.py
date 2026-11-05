@@ -63,6 +63,15 @@ def main():
             target.write_bytes(data)
             target.chmod(0o755)
             os.utime(target, (EPOCH, EPOCH))
+            # Official OpenWrt feeds do not carry mosdns. Ship only its runtime
+            # package, not luci-app-mosdns or unrelated geo databases.
+            url = 'https://github.com/sbwml/luci-app-mosdns/releases/download/v5.3.4-r14/aarch64_generic-openwrt-25.12.tar.gz'
+            bundle = urllib.request.urlopen(url, timeout=120).read()
+            if hashlib.sha256(bundle).hexdigest() != '1c889fe6b0845c073653e9e7973ea926e90efb0669f641d2a31fcc8e107286c5':
+                raise ValueError('mosdns dependency checksum mismatch')
+            with tarfile.open(fileobj=io.BytesIO(bundle), mode='r:gz') as tf:
+                member = next(m for m in tf if pathlib.PurePosixPath(m.name).name == 'mosdns-5.3.4-r14.apk' and m.isfile())
+                (OUT / 'mosdns-5.3.4-r14.apk').write_bytes(tf.extractfile(member).read())
         arch = 'aarch64_generic' if NAME == 'luci-app-cf-dns-speedtest' else 'noarch'
         deps = re.search(r'  DEPENDS:=(.*)', make)[1].replace('+', '').split()
         if NAME == 'luci-app-cpemonitor':
